@@ -1,6 +1,6 @@
 # Product Requirements Document: Engagement & Personalization Engine
 
-**Author:** Jacob George, Principal Product Manager
+**Author:** Jacob G, Principal Product Manager
 **Last Updated:** January 2025
 **Status:** Approved
 
