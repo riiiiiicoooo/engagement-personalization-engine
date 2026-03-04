@@ -457,3 +457,33 @@ engagement-personalization-engine/
 | [Metrics Framework](docs/METRICS.md) | North star, growth model, input metrics, guardrails |
 | [Decision Log](docs/DECISION_LOG.md) | Key technical and product trade-offs with reasoning |
 | [Product Roadmap](docs/ROADMAP.md) | Phased rollout from instrumentation to ML-powered personalization |
+
+---
+
+## Engagement & Budget
+
+### Team & Timeline
+
+| Role | Allocation | Duration |
+|------|-----------|----------|
+| Lead PM (Jacob) | 20 hrs/week | 14 weeks |
+| Lead Developer (US) | 40 hrs/week | 14 weeks |
+| Offshore Developer(s) | 2 × 35 hrs/week | 14 weeks |
+| QA Engineer | 20 hrs/week | 14 weeks |
+
+**Timeline:** 14 weeks total across 3 phases
+- **Phase 1: Discovery & Design** (3 weeks) — User segmentation analysis, engagement model design, experimentation framework, Segment/PostHog integration mapping
+- **Phase 2: Core Build** (8 weeks) — Scoring engine, recommendation service, real-time segmentation, A/B testing framework, dashboard
+- **Phase 3: Integration & Launch** (3 weeks) — PostHog/Segment integration, experiment calibration, QA, staged rollout to 10% → 50% → 100% of users
+
+### Budget Summary
+
+| Category | Cost | Notes |
+|----------|------|-------|
+| PM & Strategy | $51,800 | Discovery, specs, stakeholder management |
+| Development (Lead + Offshore) | $136,500 | Core platform build |
+| QA | $9,800 | Quality assurance and testing |
+| AI/LLM Token Budget | $350/month | Claude Haiku for engagement scoring, recommendation generation ~4M tokens/month |
+| Infrastructure | $420/month | Supabase $25 + Redis $65 + Vercel $20 + Trigger.dev $25 + n8n $50 + AWS compute $150 + misc $85 |
+| **Total Engagement** | **$200,000** | Fixed-price, phases billed at milestones |
+| **Ongoing Run Rate** | **$900/month** | Infrastructure + AI tokens + support |
