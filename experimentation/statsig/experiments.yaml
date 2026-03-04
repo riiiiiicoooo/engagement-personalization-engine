@@ -1,0 +1,401 @@
+# Statsig Experiment Definitions and Configuration
+# ================================================
+# 
+# This file defines all active A/B and multivariate experiments
+# in the Engagement & Personalization Engine.
+#
+# Each experiment includes:
+# - Variant definitions with allocation weights
+# - Primary and secondary metrics for success measurement
+# - Target audience and duration parameters
+# - Statistical power analysis parameters
+
+experiments:
+
+  # ========== RECOMMENDATION ALGORITHM V2 ==========
+  # A/B test comparing two recommendation approaches
+  recommendation_algorithm_v2:
+    name: "Recommendation Algorithm V2"
+    description: "Test neural embedding-based recommendations vs. traditional collaborative filtering"
+    hypothesis: |
+      Neural network-based embeddings capture user preferences more accurately
+      than collaborative filtering, leading to higher engagement and conversion rates.
+    
+    # Variant allocation
+    variants:
+      collaborative_filtering:
+        weight: 0.5
+        description: "Traditional collaborative filtering approach (control)"
+        rollout_percentage: 50
+        features:
+          - use_legacy_cf_model: true
+          - cache_ttl_seconds: 3600
+          - max_recommendations: 20
+      
+      neural_embeddings:
+        weight: 0.5
+        description: "Neural network embedding-based recommendations (treatment)"
+        rollout_percentage: 50
+        features:
+          - use_neural_embeddings: true
+          - embedding_dimension: 128
+          - cache_ttl_seconds: 1800  # Shorter TTL for more recent embeddings
+          - max_recommendations: 25
+    
+    # Metrics for success evaluation
+    primary_metric:
+      name: "engagement_score"
+      type: "gauge"
+      direction: "higher"  # Higher values are better
+      unit: "score"
+      minimum_detectable_effect: 0.15  # 15% improvement
+      baseline: 50.0  # Expected baseline engagement score
+    
+    secondary_metrics:
+      - name: "session_duration"
+        type: "timing"
+        direction: "higher"
+        unit: "seconds"
+        minimum_detectable_effect: 0.10
+      
+      - name: "conversion_rate"
+        type: "percentage"
+        direction: "higher"
+        unit: "percent"
+        minimum_detectable_effect: 0.20
+      
+      - name: "recommendation_click_through_rate"
+        type: "percentage"
+        direction: "higher"
+        unit: "percent"
+        minimum_detectable_effect: 0.25
+    
+    # Targeting and duration
+    target_audience: "all_users"
+    target_regions: ["US", "EU", "APAC"]
+    target_user_tiers: ["free", "pro", "enterprise"]
+    
+    duration_days: 14
+    launch_date: "2026-03-04"
+    end_date: "2026-03-18"
+    
+    # Sample size and power analysis
+    sample_size:
+      minimum_sample_size: 1000
+      recommended_sample_size: 5000
+      power: 0.8  # 80% statistical power
+      significance_level: 0.05  # 95% confidence
+    
+    # Prerequisites: must check these gates before experiment runs
+    prerequisites:
+      - "enable_ml_recommendations"
+      - "enable_real_time_personalization"
+    
+    # Experiment lifecycle state
+    status: "active"  # planning | active | paused | completed | archived
+
+
+  # ========== EMAIL SEND TIME OPTIMIZATION ==========
+  # Multivariate test: 4 send time strategies
+  email_send_time_optimization:
+    name: "Email Send Time Optimization"
+    description: "Multivariate test of email send times: fixed times vs. AI-optimized per-user timing"
+    hypothesis: |
+      Optimizing email send time to user's peak engagement window increases
+      open rates and click-through rates while reducing unsubscribe rate.
+      AI-optimized timing outperforms fixed schedule strategies.
+    
+    variants:
+      morning:
+        weight: 0.25
+        description: "Send all emails at 8:00 AM user local time"
+        rollout_percentage: 25
+        features:
+          - send_hour: 8
+          - send_minute: 0
+          - optimization_enabled: false
+          - strategy: "fixed_morning"
+      
+      afternoon:
+        weight: 0.25
+        description: "Send all emails at 2:00 PM user local time"
+        rollout_percentage: 25
+        features:
+          - send_hour: 14
+          - send_minute: 0
+          - optimization_enabled: false
+          - strategy: "fixed_afternoon"
+      
+      evening:
+        weight: 0.25
+        description: "Send all emails at 6:00 PM user local time"
+        rollout_percentage: 25
+        features:
+          - send_hour: 18
+          - send_minute: 0
+          - optimization_enabled: false
+          - strategy: "fixed_evening"
+      
+      ai_optimized:
+        weight: 0.25
+        description: "ML-optimized send time per user based on engagement history"
+        rollout_percentage: 25
+        features:
+          - optimization_enabled: true
+          - strategy: "ai_optimized"
+          - lookback_days: 90
+          - model_version: "v2.1"
+          - personalization_window_hours: 4
+    
+    primary_metric:
+      name: "email_open_rate"
+      type: "percentage"
+      direction: "higher"
+      unit: "percent"
+      minimum_detectable_effect: 0.15
+      baseline: 28.5
+    
+    secondary_metrics:
+      - name: "email_click_rate"
+        type: "percentage"
+        direction: "higher"
+        unit: "percent"
+        minimum_detectable_effect: 0.20
+      
+      - name: "unsubscribe_rate"
+        type: "percentage"
+        direction: "lower"  # Lower is better
+        unit: "percent"
+        minimum_detectable_effect: 0.05
+      
+      - name: "reply_rate"
+        type: "percentage"
+        direction: "higher"
+        unit: "percent"
+        minimum_detectable_effect: 0.30
+    
+    target_audience: "premium_users"  # Only premium tier users
+    target_user_tiers: ["pro", "enterprise"]
+    
+    duration_days: 21
+    launch_date: "2026-02-12"
+    end_date: "2026-03-05"
+    
+    sample_size:
+      minimum_sample_size: 5000
+      recommended_sample_size: 20000
+      power: 0.8
+      significance_level: 0.05
+    
+    prerequisites:
+      - "enable_real_time_personalization"
+    
+    status: "active"
+
+
+  # ========== ONBOARDING FLOW VARIANT ==========
+  # A/B/C test: 3 different onboarding flows
+  onboarding_flow_variant:
+    name: "Onboarding Flow Variant"
+    description: "Test standard vs. personalized vs. gamified new user onboarding"
+    hypothesis: |
+      Gamified onboarding with progress tracking and achievement badges
+      increases time-to-first-engagement and improves 7-day retention
+      compared to linear or personalized flows.
+    
+    variants:
+      standard:
+        weight: 0.33
+        description: "Standard linear onboarding flow (control)"
+        rollout_percentage: 33
+        features:
+          - flow_type: "linear"
+          - gamification: false
+          - personalization: false
+          - estimated_duration_minutes: 8
+          - steps: 5
+      
+      personalized:
+        weight: 0.33
+        description: "Flow personalized by signup context and user signals"
+        rollout_percentage: 33
+        features:
+          - flow_type: "personalized"
+          - gamification: false
+          - personalization: true
+          - estimated_duration_minutes: 7
+          - steps: 4
+          - personalization_model: "v1.0"
+      
+      gamified:
+        weight: 0.34
+        description: "Gamified flow with badges, progress bar, achievements"
+        rollout_percentage: 34
+        features:
+          - flow_type: "gamified"
+          - gamification: true
+          - personalization: false
+          - badges_enabled: true
+          - progress_bar: true
+          - leaderboard: false
+          - estimated_duration_minutes: 12
+          - steps: 8
+    
+    primary_metric:
+      name: "time_to_first_engagement"
+      type: "timing"
+      direction: "lower"  # Faster is better
+      unit: "hours"
+      minimum_detectable_effect: 0.20
+      baseline: 4.5
+    
+    secondary_metrics:
+      - name: "onboarding_completion_rate"
+        type: "percentage"
+        direction: "higher"
+        unit: "percent"
+        minimum_detectable_effect: 0.15
+      
+      - name: "premium_conversion_7d"
+        type: "percentage"
+        direction: "higher"
+        unit: "percent"
+        minimum_detectable_effect: 0.25
+      
+      - name: "onboarding_flow_completion_time"
+        type: "timing"
+        direction: "higher"  # Users engaging more thoroughly
+        unit: "minutes"
+        minimum_detectable_effect: 0.30
+    
+    target_audience: "new_users"  # Only users with account age < 7 days
+    target_signup_sources: ["organic", "social", "referral"]
+    
+    duration_days: 30
+    launch_date: "2026-01-15"
+    end_date: "2026-02-14"
+    
+    sample_size:
+      minimum_sample_size: 500
+      recommended_sample_size: 2000
+      power: 0.8
+      significance_level: 0.05
+    
+    prerequisites: []  # No prerequisites
+    
+    status: "completed"  # This experiment has finished
+    winner: "gamified"
+
+
+  # ========== PUSH NOTIFICATION FREQUENCY ==========
+  # Multivariate test: notification frequency optimization
+  push_notification_frequency:
+    name: "Push Notification Frequency Optimization"
+    description: "Test different push notification frequencies for retention and engagement"
+    hypothesis: |
+      Adaptive notification frequency based on user engagement patterns
+      maximizes 7-day retention while minimizing uninstall rate.
+      ML-optimized frequency outperforms fixed schedules.
+    
+    variants:
+      daily:
+        weight: 0.25
+        description: "Daily push notifications"
+        rollout_percentage: 25
+        features:
+          - frequency_per_week: 7
+          - strategy: "fixed_daily"
+          - adaptive: false
+      
+      three_times_weekly:
+        weight: 0.25
+        description: "Push notifications 3 times per week"
+        rollout_percentage: 25
+        features:
+          - frequency_per_week: 3
+          - strategy: "fixed_3pw"
+          - adaptive: false
+          - days: ["Monday", "Wednesday", "Friday"]
+      
+      weekly:
+        weight: 0.25
+        description: "Weekly digest-style notifications"
+        rollout_percentage: 25
+        features:
+          - frequency_per_week: 1
+          - strategy: "weekly_digest"
+          - adaptive: false
+          - format: "digest"
+      
+      adaptive:
+        weight: 0.25
+        description: "ML-optimized frequency per user"
+        rollout_percentage: 25
+        features:
+          - strategy: "adaptive"
+          - adaptive: true
+          - max_frequency_per_week: 5
+          - min_frequency_per_week: 1
+          - model_version: "v1.2"
+          - personalization_enabled: true
+    
+    primary_metric:
+      name: "app_retention_7d"
+      type: "percentage"
+      direction: "higher"
+      unit: "percent"
+      minimum_detectable_effect: 0.12
+      baseline: 65.0
+    
+    secondary_metrics:
+      - name: "push_engagement_rate"
+        type: "percentage"
+        direction: "higher"
+        unit: "percent"
+        minimum_detectable_effect: 0.15
+      
+      - name: "uninstall_rate"
+        type: "percentage"
+        direction: "lower"
+        unit: "percent"
+        minimum_detectable_effect: 0.10
+      
+      - name: "push_opt_out_rate"
+        type: "percentage"
+        direction: "lower"
+        unit: "percent"
+        minimum_detectable_effect: 0.20
+    
+    target_audience: "all_users"
+    
+    duration_days: 28
+    launch_date: "2026-02-05"
+    end_date: "2026-03-05"
+    
+    sample_size:
+      minimum_sample_size: 2000
+      recommended_sample_size: 10000
+      power: 0.8
+      significance_level: 0.05
+    
+    prerequisites:
+      - "enable_real_time_personalization"
+    
+    status: "active"
+
+# Feature gates (on/off flags, not experiments)
+feature_gates:
+  enable_real_time_personalization:
+    name: "Real-time Personalization"
+    description: "Enable real-time content personalization engine"
+    rollout_percentage: 25
+    
+  enable_ml_recommendations:
+    name: "ML Recommendations Pipeline"
+    description: "Kill switch for ML recommendation system"
+    rollout_percentage: 100
+    
+  enable_advanced_analytics_dashboard:
+    name: "Advanced Analytics Dashboard"
+    description: "Beta feature for advanced analytics"
+    rollout_percentage: 10
