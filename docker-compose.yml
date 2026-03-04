@@ -1,0 +1,194 @@
+version: '3.8'
+
+# Docker Compose for local development
+# ====================================
+# Provides PostgreSQL, Redis, and Kafka for the engagement engine.
+#
+# Usage:
+#   docker-compose up -d      # Start services
+#   docker-compose down       # Stop services
+#   docker-compose logs -f    # View logs
+#
+# Access:
+#   PostgreSQL: localhost:5432 (user: engagement, password: password, db: engagement)
+#   Redis: localhost:6379
+#   Kafka: localhost:9092 (broker), localhost:29092 (internal)
+
+services:
+  # =========================================================================
+  # PostgreSQL - User Profiles & Experiment Assignments
+  # =========================================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: engagement-postgres
+    environment:
+      POSTGRES_USER: engagement
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: engagement
+      POSTGRES_INITDB_ARGS: "-c log_statement=all"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres-init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U engagement"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - engagement
+
+  # =========================================================================
+  # Redis - Real-time Feature Store & Cache
+  # =========================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: engagement-redis
+    command: redis-server --appendonly yes --requirepass "password"
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - engagement
+
+  # =========================================================================
+  # Kafka - Event Streaming
+  # =========================================================================
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: engagement-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    networks:
+      - engagement
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: engagement-kafka
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions.sh", "--bootstrap-server", "localhost:9092"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - engagement
+
+  # =========================================================================
+  # Kafka UI - Visual Monitoring
+  # =========================================================================
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: engagement-kafka-ui
+    depends_on:
+      - kafka
+    environment:
+      KAFKA_CLUSTERS_0_NAME: engagement
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+    ports:
+      - "8080:8080"
+    networks:
+      - engagement
+
+  # =========================================================================
+  # Segment Webhook Receiver (Optional - for local testing)
+  # =========================================================================
+  # Uncomment to run the segment receiver locally during development
+  #
+  # segment-receiver:
+  #   build:
+  #     context: .
+  #     dockerfile: docker/segment-receiver.Dockerfile
+  #   container_name: engagement-segment-receiver
+  #   environment:
+  #     KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+  #     REDIS_URL: redis://:password@redis:6379
+  #     POSTGRES_URL: postgresql://engagement:password@postgres:5432/engagement
+  #   ports:
+  #     - "8000:8000"
+  #   depends_on:
+  #     - postgres
+  #     - redis
+  #     - kafka
+  #   networks:
+  #     - engagement
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  kafka_data:
+    driver: local
+
+networks:
+  engagement:
+    driver: bridge
+
+# ============================================================================
+# LOCAL DEVELOPMENT NOTES
+# ============================================================================
+#
+# 1. Initialization:
+#    Services initialize with empty databases. For testing, seed with sample
+#    data using scripts/seed-data.py
+#
+# 2. Kafka Topics:
+#    Auto-created on first publish. Pre-create with:
+#      docker-compose exec kafka kafka-topics.sh --create \
+#        --bootstrap-server localhost:9092 \
+#        --topic events-raw --partitions 3 --replication-factor 1
+#
+# 3. Persistence:
+#    - PostgreSQL: postgres_data volume
+#    - Redis: redis_data volume
+#    - Kafka: kafka_data volume
+#    Clean with: docker volume rm engagement_postgres_data redis_data kafka_data
+#
+# 4. Monitoring:
+#    - Kafka UI: http://localhost:8080
+#    - PostgreSQL: psql -h localhost -U engagement -d engagement
+#    - Redis CLI: redis-cli -h localhost -p 6379 --auth password
+#
+# 5. Network:
+#    All services on engagement network for inter-service communication.
+#    Access from host:
+#      - postgres: localhost:5432
+#      - redis: localhost:6379
+#      - kafka: localhost:9092
+#      - kafka-ui: localhost:8080
+#
+# 6. Resource Limits (production):
+#    Add resource limits to services:
+#    resources:
+#      limits:
+#        cpus: '0.5'
+#        memory: 512M
+#      reservations:
+#        cpus: '0.25'
+#        memory: 256M

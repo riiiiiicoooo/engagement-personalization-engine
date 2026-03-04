@@ -1,0 +1,235 @@
+{
+  "name": "Notification Orchestration Workflow",
+  "description": "Triggered when user engagement score drops - sends personalized re-engagement notification via email with optimal timing",
+  "nodes": [
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "{{ $trigger.body.record.engagement_score }}",
+              "condition": "<",
+              "value2": 35
+            }
+          ]
+        }
+      },
+      "id": "76d96563-a4e9-4c0a-8dda-8d89d1d53c0f",
+      "name": "Webhook Trigger - Engagement Drop",
+      "type": "n8n-nodes-base.webhookTrigger",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "url": "=postgres://user:pass@localhost/engagement_engine",
+        "operation": "executeQuery",
+        "query": "SELECT * FROM users WHERE id = $1",
+        "options": {}
+      },
+      "id": "a6f84d1a-5e5f-4d8a-9e4d-2c8f9a0b1c2d",
+      "name": "Fetch User Profile",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [450, 300],
+      "credentials": {
+          "postgresCredential": "supabase_engagement_db"
+      }
+    },
+    {
+      "parameters": {
+        "url": "=postgres://user:pass@localhost/engagement_engine",
+        "operation": "executeQuery",
+        "query": "SELECT * FROM notification_preferences WHERE user_id = $1",
+        "options": {}
+      },
+      "id": "b7g95674-b5f6-4d9b-9f5e-3d9g0b1c2d3e",
+      "name": "Check Notification Preferences",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [450, 450],
+      "credentials": {
+        "postgresCredential": "supabase_engagement_db"
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "{{ $node[\"Check Notification Preferences\"].json[0].disable_all }}",
+              "condition": "===",
+              "value2": false
+            }
+          ]
+        }
+      },
+      "id": "c8h96785-c6g7-5d0c-0g6f-4e0h1c2d3e4f",
+      "name": "Is Notification Enabled?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [650, 400]
+    },
+    {
+      "parameters": {
+        "url": "https://api.example.com/optimal-send-time",
+        "method": "POST",
+        "body": {
+          "userId": "={{ $node[\"Fetch User Profile\"].json[0].user_id }}",
+          "timezone": "={{ $node[\"Check Notification Preferences\"].json[0].timezone }}",
+          "engagementTier": "={{ $node[\"Fetch User Profile\"].json[0].engagement_tier }}",
+          "cohort": "={{ $node[\"Fetch User Profile\"].json[0].behavioral_cohort }}"
+        },
+        "options": {}
+      },
+      "id": "d9i07896-d7h8-6e1d-1h7g-5f1i2d3e4f5g",
+      "name": "Query Optimal Send Time Model",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [850, 350]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "to": "={{ $node[\"Fetch User Profile\"].json[0].email }}",
+        "subject": "We miss you! Here's what's new",
+        "bodyType": "html",
+        "body": "={% if $node[\"Fetch User Profile\"].json[0].engagement_tier >= 4 %}\n  <h2>Time to get back to your wellness journey</h2>\n  <p>Hi {{ $node[\"Fetch User Profile\"].json[0].email }},</p>\n  <p>We noticed you haven't visited in a few days. We miss you!</p>\n  <p>Here's what's new:</p>\n  <ul>\n    <li>New content tailored to your goals</li>\n    <li>Your progress summary</li>\n    <li>Community highlights from users like you</li>\n  </ul>\n  <a href=\"https://app.example.com/welcome-back\">Open App</a>\n{% else %}\n  <h2>Come back and see what's changed</h2>\n  <p>Hey there,</p>\n  <p>We've updated the app with features you'll love. Check it out!</p>\n  <a href=\"https://app.example.com/welcome-back\">Explore</a>\n{% endif %}",
+        "options": {}
+      },
+      "id": "e0j18907-e8i9-7f2e-2i8h-6g2j3e4f5g6h",
+      "name": "Send via Resend",
+      "type": "n8n-nodes-base.resend",
+      "typeVersion": 1,
+      "position": [1050, 300],
+      "credentials": {
+        "resendApi": "resend_api_key"
+      }
+    },
+    {
+      "parameters": {
+        "url": "=postgres://user:pass@localhost/engagement_engine",
+        "operation": "executeQuery",
+        "query": "INSERT INTO notifications (notification_id, user_id, notification_type, channel, status, subject, sent_at) VALUES (gen_random_uuid(), $1, 're_engagement', 'email', 'sent', $2, NOW())",
+        "options": {}
+      },
+      "id": "f1k29018-f9j0-8g3f-3j9i-7h3k4f5g6h7i",
+      "name": "Log Notification Sent",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [1200, 300],
+      "credentials": {
+        "postgresCredential": "supabase_engagement_db"
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://api.example.com/webhook/notification-event",
+        "method": "POST",
+        "body": {
+          "event": "re_engagement_sent",
+          "userId": "={{ $node[\"Fetch User Profile\"].json[0].user_id }}",
+          "cohort": "={{ $node[\"Fetch User Profile\"].json[0].behavioral_cohort }}",
+          "engagementScore": "={{ $node[\"Fetch User Profile\"].json[0].engagement_score }}",
+          "timestamp": "={{ $now.toISOString() }}"
+        },
+        "options": {}
+      },
+      "id": "g2l30129-g0k1-9h4g-4k0j-8i4l5g6h7i8j",
+      "name": "Track Event in PostHog",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1350, 300]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger - Engagement Drop": {
+      "main": [
+        [
+          {
+            "node": "Fetch User Profile",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch User Profile": {
+      "main": [
+        [
+          {
+            "node": "Check Notification Preferences",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Query Optimal Send Time Model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Notification Preferences": {
+      "main": [
+        [
+          {
+            "node": "Is Notification Enabled?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Notification Enabled?": {
+      "main": [
+        [
+          {
+            "node": "Query Optimal Send Time Model",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Query Optimal Send Time Model": {
+      "main": [
+        [
+          {
+            "node": "Send via Resend",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send via Resend": {
+      "main": [
+        [
+          {
+            "node": "Log Notification Sent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Notification Sent": {
+      "main": [
+        [
+          {
+            "node": "Track Event in PostHog",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

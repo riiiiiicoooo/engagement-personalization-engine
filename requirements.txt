@@ -1,0 +1,64 @@
+# Engagement & Personalization Engine - Python Dependencies
+# ==========================================================
+# Install with: pip install -r requirements.txt
+
+# Core Framework
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+pydantic==2.5.0
+pydantic-settings==2.1.0
+
+# Data Processing
+pandas==2.1.3
+numpy==1.26.2
+scikit-learn==1.3.2
+
+# Databases & Data Warehousing
+sqlalchemy==2.0.23
+snowflake-sqlalchemy==1.5.0
+snowflake-connector-python==3.5.0
+psycopg2-binary==2.9.9
+redis==5.0.1
+
+# Feature Store
+feast==0.32.0
+feast-snowflake==0.32.0
+
+# ML & Modeling
+scipy==1.11.4
+statsmodels==0.14.0
+
+# Message Queue / Streaming
+confluent-kafka==2.3.0
+kafka-python==2.0.2
+
+# Testing & Validation
+pytest==7.4.3
+pytest-asyncio==0.21.1
+pytest-cov==4.1.0
+
+# Code Quality
+black==23.12.0
+flake8==6.1.0
+mypy==1.7.1
+isort==5.13.2
+
+# Monitoring & Logging
+python-json-logger==2.0.7
+prometheus-client==0.19.0
+
+# Utilities
+python-dotenv==1.0.0
+click==8.1.7
+tqdm==4.66.1
+requests==2.31.0
+
+# Development
+ipython==8.18.1
+jupyter==1.0.0
+notebook==7.0.6
+
+# AWS/GCP SDKs (optional - uncomment as needed)
+# boto3==1.34.0               # AWS S3, DynamoDB
+# google-cloud-bigquery==3.13 # GCP BigQuery
+# google-cloud-storage==2.14  # GCP Cloud Storage

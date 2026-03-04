@@ -1,0 +1,320 @@
+{
+  "name": "Daily Cohort Recalculation Workflow",
+  "description": "Daily batch job (2 AM UTC) to recalculate user engagement scores, update cohort classifications, identify at-risk users, and trigger re-engagement campaigns",
+  "nodes": [
+    {
+      "parameters": {
+        "triggerTimes": [
+          {
+            "mode": "everyDayAm",
+            "hour": 2,
+            "minute": 0
+          }
+        ]
+      },
+      "id": "cronTrigger",
+      "name": "Cron Trigger - Daily 2 AM",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "url": "=postgres://user:pass@localhost/engagement_engine",
+        "operation": "executeQuery",
+        "query": "SELECT id, user_id, engagement_score FROM users WHERE created_at < NOW() - INTERVAL '1 day' ORDER BY id",
+        "options": {}
+      },
+      "id": "fetchAllUsers",
+      "name": "Fetch All Users",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [450, 300],
+      "credentials": {
+        "postgresCredential": "supabase_engagement_db"
+      }
+    },
+    {
+      "parameters": {
+        "batchSize": 100,
+        "options": {}
+      },
+      "id": "splitBatch",
+      "name": "Split Into Batches",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://engagement-api.example.com/calculate-scores",
+        "method": "POST",
+        "body": {
+          "users": "={{ $node[\"Split Into Batches\"].json }}",
+          "lookbackDays": 30
+        },
+        "options": {}
+      },
+      "id": "calculateEngagementScores",
+      "name": "Calculate Engagement Scores",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "url": "=postgres://user:pass@localhost/engagement_engine",
+        "operation": "executeQuery",
+        "query": "UPDATE users SET engagement_score = $1, updated_at = NOW() WHERE id = $2",
+        "options": {}
+      },
+      "id": "updateEngagementScores",
+      "name": "Update Engagement Scores in DB",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [1050, 300],
+      "credentials": {
+        "postgresCredential": "supabase_engagement_db"
+      }
+    },
+    {
+      "parameters": {
+        "url": "=postgres://user:pass@localhost/engagement_engine",
+        "operation": "executeQuery",
+        "query": "WITH cohort_calc AS (\n  SELECT \n    id, \n    CASE \n      WHEN engagement_score >= 80 THEN 'power_user'\n      WHEN engagement_score >= 60 THEN 'regular'\n      WHEN engagement_score >= 40 THEN 'casual'\n      WHEN engagement_score >= 20 THEN 'drifting'\n      ELSE 'dormant'\n    END as new_cohort,\n    CASE\n      WHEN engagement_score >= 80 THEN 1\n      WHEN engagement_score >= 60 THEN 2\n      WHEN engagement_score >= 40 THEN 3\n      WHEN engagement_score >= 20 THEN 4\n      ELSE 5\n    END as new_tier,\n    CASE\n      WHEN last_activity_at < NOW() - INTERVAL '14 days' THEN 'at_risk'\n      WHEN last_activity_at < NOW() - INTERVAL '7 days' THEN 'at_risk'\n      WHEN engagement_score < 35 THEN 'at_risk'\n      ELSE 'engaged'\n    END as lifecycle_stage\n  FROM users\n)\nUPDATE users u\nSET \n  behavioral_cohort = c.new_cohort,\n  engagement_tier = c.new_tier,\n  lifecycle_stage = c.lifecycle_stage,\n  updated_at = NOW()\nFROM cohort_calc c\nWHERE u.id = c.id",
+        "options": {}
+      },
+      "id": "updateCohortClassifications",
+      "name": "Update Cohort Classifications",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [1050, 450],
+      "credentials": {
+        "postgresCredential": "supabase_engagement_db"
+      }
+    },
+    {
+      "parameters": {
+        "url": "=postgres://user:pass@localhost/engagement_engine",
+        "operation": "executeQuery",
+        "query": "SELECT u.id, u.user_id, u.email, u.engagement_score, u.behavioral_cohort, u.engagement_tier\nFROM users u\nWHERE \n  (u.lifecycle_stage = 'at_risk' AND u.behavioral_cohort != 'dormant')\n  OR (u.engagement_score < 30)\n  OR (u.last_activity_at < NOW() - INTERVAL '14 days' AND u.created_at < NOW() - INTERVAL '14 days')",
+        "options": {}
+      },
+      "id": "identifyAtRiskUsers",
+      "name": "Identify At-Risk Users",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [1050, 600],
+      "credentials": {
+        "postgresCredential": "supabase_engagement_db"
+      }
+    },
+    {
+      "parameters": {
+        "batchSize": 50,
+        "options": {}
+      },
+      "id": "splitAtRiskBatch",
+      "name": "Split At-Risk Users Into Batches",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [1250, 600]
+    },
+    {
+      "parameters": {
+        "url": "https://api.example.com/trigger-workflow",
+        "method": "POST",
+        "body": {
+          "workflowId": "notification_orchestration",
+          "users": "={{ $node[\"Split At-Risk Users Into Batches\"].json }}",
+          "campaignType": "at_risk_reengagement",
+          "priority": "high"
+        },
+        "options": {}
+      },
+      "id": "triggerReengagementCampaign",
+      "name": "Trigger Re-engagement Workflows",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1450, 600]
+    },
+    {
+      "parameters": {
+        "url": "=postgres://user:pass@localhost/engagement_engine",
+        "operation": "executeQuery",
+        "query": "INSERT INTO cohort_assignments (user_id, lifecycle_stage, behavioral_cohort, goal_cluster, engagement_tier, assigned_at)\nSELECT id, lifecycle_stage, behavioral_cohort, goal_cluster, engagement_tier, NOW()\nFROM users\nON CONFLICT (user_id) DO UPDATE SET\n  lifecycle_stage = EXCLUDED.lifecycle_stage,\n  behavioral_cohort = EXCLUDED.behavioral_cohort,\n  engagement_tier = EXCLUDED.engagement_tier,\n  assigned_at = NOW()",
+        "options": {}
+      },
+      "id": "logCohortAssignments",
+      "name": "Log Cohort Assignments",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [1050, 750],
+      "credentials": {
+        "postgresCredential": "supabase_engagement_db"
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://api.example.com/webhook/cohort-recalc-complete",
+        "method": "POST",
+        "body": {
+          "event": "daily_cohort_recalculation_complete",
+          "timestamp": "={{ $now.toISOString() }}",
+          "usersProcessed": "={{ $node[\"Fetch All Users\"].json.length }}",
+          "atRiskCount": "={{ $node[\"Identify At-Risk Users\"].json.length }}"
+        },
+        "options": {}
+      },
+      "id": "webhookComplete",
+      "name": "Post Completion Webhook",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1600, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://app.posthog.com/api/event/",
+        "method": "POST",
+        "headers": {
+          "Authorization": "Bearer {{ $env.POSTHOG_API_KEY }}"
+        },
+        "body": {
+          "event": "daily_cohort_recalculation",
+          "properties": {
+            "users_processed": "={{ $node[\"Fetch All Users\"].json.length }}",
+            "at_risk_count": "={{ $node[\"Identify At-Risk Users\"].json.length }}",
+            "timestamp": "={{ $now.toISOString() }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "trackPostHogEvent",
+      "name": "Track in PostHog",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1600, 450]
+    }
+  ],
+  "connections": {
+    "Cron Trigger - Daily 2 AM": {
+      "main": [
+        [
+          {
+            "node": "Fetch All Users",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch All Users": {
+      "main": [
+        [
+          {
+            "node": "Split Into Batches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Into Batches": {
+      "main": [
+        [
+          {
+            "node": "Calculate Engagement Scores",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Engagement Scores": {
+      "main": [
+        [
+          {
+            "node": "Update Engagement Scores in DB",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Engagement Scores in DB": {
+      "main": [
+        [
+          {
+            "node": "Update Cohort Classifications",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Cohort Classifications": {
+      "main": [
+        [
+          {
+            "node": "Identify At-Risk Users",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Log Cohort Assignments",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Identify At-Risk Users": {
+      "main": [
+        [
+          {
+            "node": "Split At-Risk Users Into Batches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split At-Risk Users Into Batches": {
+      "main": [
+        [
+          {
+            "node": "Trigger Re-engagement Workflows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trigger Re-engagement Workflows": {
+      "main": [
+        []
+      ]
+    },
+    "Log Cohort Assignments": {
+      "main": [
+        [
+          {
+            "node": "Post Completion Webhook",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Track in PostHog",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "errorWorkflow": "error_notification_workflow"
+  }
+}

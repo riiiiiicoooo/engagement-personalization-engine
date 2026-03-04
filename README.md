@@ -172,7 +172,61 @@ Three interconnected systems that make the product smarter as usage scales:
 
 ---
 
-## Tech Stack
+## Modern Stack
+
+**Phase 1 → Phase 2 Evolution**: The original system built experimentation and personalization infrastructure from scratch, demonstrating deep understanding of the mechanics. Phase 2 migrated core components to industry-standard platforms—showing judgment in build-vs-buy decisions and operational maturity.
+
+> "Building it first taught us the constraints. Migrating to PostHog/Supabase/n8n demonstrates we know what good looks like and can execute at scale."
+
+### Phase 2 Tech Stack (Current)
+
+| Layer | Technology | Rationale | Phase 1 Alternative |
+|---|---|---|---|
+| **Frontend** | Next.js 14 + TypeScript | SSR for SEO, fast iteration, unified codebase | Next.js + custom state |
+| **Backend** | Node.js/TypeScript + FastAPI | Type-safe APIs, async event processing | Python-only FastAPI |
+| **Primary DB** | Supabase (PostgreSQL + RLS) | Real-time capabilities, RLS for multi-tenant safety, managed ops | Self-hosted PostgreSQL |
+| **Feature Flags** | PostHog | Built-in experiment platform, statistical rigor, real-time rollout | Custom flag service |
+| **Experimentation** | PostHog + TypeScript SDK | Sequential testing, guardrail metrics, segment targeting | Custom experiment framework |
+| **Workflows** | n8n (self-hosted or cloud) | Visual workflow builder, Supabase + Resend integrations, webhook triggers | Custom Python scripts |
+| **Background Jobs** | Trigger.dev | Reliable job scheduling, checkpointing for large batches, built-in retry logic | Celery + Redis |
+| **Email** | Resend + React Email | Type-safe email templates, transactional reliability | SendGrid templates |
+| **Analytics** | PostHog (cohort analysis) | Product-native analytics, integrated with feature flags | Amplitude (separate) |
+| **Caching** | Redis (optional) | Feature flag evaluation, engagement score cache | Built-in PostgreSQL cache |
+| **Monitoring** | Vercel Analytics + PostHog | Real User Monitoring, integrated platform insights | Datadog (separate) |
+
+### Quick Start
+
+```bash
+# Install dependencies
+npm install
+
+# Setup local Supabase (optional)
+npm run db:start
+
+# Run migrations
+npm run db:migrate
+
+# Start development server
+npm run dev
+
+# Run background jobs (Trigger.dev local)
+npx trigger.dev@latest dev
+```
+
+### Configuration
+
+See [.env.example](.env.example) for all environment variables.
+
+Key services to configure:
+1. **Supabase**: Create project, run migrations from `supabase/migrations/001_initial_schema.sql`
+2. **PostHog**: Create project, copy API key to `.env.local`
+3. **Resend**: Get API key for transactional emails
+4. **Trigger.dev**: Connect backend job server (free tier available)
+5. **n8n**: Deploy workflows for notification orchestration and cohort recalculation
+
+---
+
+## Phase 1: Original Tech Stack (Reference)
 
 | Layer | Technology | Rationale |
 |---|---|---|

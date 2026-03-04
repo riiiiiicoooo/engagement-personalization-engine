@@ -1,0 +1,154 @@
+# Cursor AI Project Context: Engagement & Personalization Engine
+
+## Project Overview
+Modern tooling infrastructure for an ML-powered engagement and personalization platform. The system combines real-time user segmentation, recommendation engines, rigorous experimentation, and operational workflows to drive retention and monetization.
+
+## Tech Stack
+- **Backend**: TypeScript/Node.js, Python (FastAPI legacy)
+- **Database**: Supabase (PostgreSQL with RLS)
+- **Analytics**: PostHog (feature flags, experiments, product analytics)
+- **Workflows**: n8n (notification orchestration, daily cohort recalculation)
+- **Background Jobs**: Trigger.dev (engagement scoring, recommendation generation)
+- **Email**: React Email + Resend API
+- **Deployment**: Vercel (frontend), Docker (backend services)
+
+## Architecture
+```
+Client (Next.js) → API Layer → Supabase + PostHog + Redis
+                              ↓
+                    n8n Workflows (Trigger.dev jobs)
+                              ↓
+                  Engagement Scoring, Recommendations
+                              ↓
+                    Email Notifications (Resend)
+```
+
+## Key Concepts
+
+### Engagement Scoring
+Real-time composite score (0-100):
+- 30% Recency (recent activity)
+- 25% Frequency (activity in last 14 days)
+- 20% Depth (quality of interactions)
+- 15% Consistency (regularity pattern)
+- 10% Progression (goal movement)
+
+### User Segmentation
+Four dimensions:
+- Lifecycle: New → Activated → Engaged → At-risk → Dormant → Reactivated
+- Behavioral: Power users, Regular, Casual, Drifting, Dormant, Churned
+- Goal clusters: Weight mgmt, Fitness, Mental wellness, Chronic condition, General
+- Engagement tiers: Tier 1 (80-100), Tier 2 (60-79), Tier 3 (40-59), Tier 4 (20-39), Tier 5 (0-19)
+
+### Experiments
+Run via PostHog with three main experiments:
+- **notification_frequency_test**: Test different notification cadences (daily, 3x/week, weekly)
+- **content_personalization_v2**: Test personalized content ranking vs. default ranking
+- **onboarding_flow_optimization**: Test streamlined onboarding for new users
+
+### Feature Flags
+Controlled rollout patterns (1% → 10% → 50% → 100%) for:
+- New notification system
+- Personalized content feed
+- Updated recommendation algorithm
+- Simplified onboarding flow
+
+## Database Schema (Supabase)
+
+### Core Tables
+- **users**: user_id, email, engagement_score, cohort, tier, created_at, updated_at
+- **events**: event_id, user_id, event_type, metadata, timestamp
+- **experiments**: experiment_id, name, status, config, start_date, end_date
+- **feature_flags**: flag_id, name, status, rollout_percentage, targeting_rules
+- **notifications**: notification_id, user_id, type, status, sent_at, opened_at, clicked_at
+- **recommendations**: recommendation_id, user_id, content_id, rank, reason, created_at
+- **cohort_assignments**: user_id, lifecycle_stage, behavioral_cohort, goal_cluster, engagement_tier, updated_at
+
+### RLS Policies
+- Users see only their own data (unless admin)
+- Product team sees aggregate/anonymous data
+- Admins see everything
+
+## Workflows (n8n)
+
+### notification_orchestration.json
+1. Supabase webhook trigger: engagement_score < threshold
+2. Check user notification preferences
+3. Query optimal send time model
+4. Schedule email via Resend
+5. Track open/click via webhook
+6. Update engagement_score
+
+### cohort_recalculation.json
+1. Cron trigger: Daily 2 AM UTC
+2. Fetch all users from Supabase
+3. Recalculate engagement scores
+4. Update cohort classifications
+5. Identify newly at-risk users
+6. Trigger re-engagement workflows
+
+## Background Jobs (Trigger.dev)
+
+### engagement_scoring.ts
+- Batch recalculate engagement scores for all users
+- Fetch activity data, compute features, apply scoring formula
+- Classify into cohorts, detect transitions
+- Save results with checkpointing for large datasets
+
+### recommendation_generation.ts
+- Generate personalized content recommendations
+- Hybrid approach: Collaborative filtering + content-based
+- Thompson sampling for exploration/exploitation tradeoff
+
+## Code Style
+- Use TypeScript for type safety
+- Follow PostHog SDK patterns (real-world patterns from docs)
+- Use Supabase JS client with proper RLS
+- Keep n8n workflows modular and testable
+- Email templates use @react-email/components
+- Use Trigger.dev patterns for reliable background jobs
+
+## Common Tasks
+
+### Add a new experiment
+1. Define in `posthog/experiments.ts` with metrics and targeting
+2. Add feature flag in PostHog UI
+3. Update client code to use `posthog.getFeatureFlags()`
+4. Add telemetry in `posthog/setup.ts`
+
+### Modify engagement scoring formula
+1. Update logic in `trigger-jobs/engagement_scoring.ts`
+2. Update display logic in README and docs
+3. Backfill scores with batch job
+
+### Create new notification type
+1. Add to `emails/` folder
+2. Update `n8n/notification_orchestration.json` trigger
+3. Add type to Supabase notifications table
+
+### Monitor experiments
+1. Check PostHog dashboard for results
+2. Review statistical significance
+3. Check guardrail metrics in setup.ts
+
+## Documentation Files
+- docs/ARCHITECTURE.md: System design
+- docs/EXPERIMENTATION_GUIDE.md: How to run experiments
+- docs/PERSONALIZATION_FRAMEWORK.md: Algorithm details
+- docs/DATA_MODEL.md: Schema and event taxonomy
+- docs/METRICS.md: KPI definitions and targets
+- docs/DECISION_LOG.md: Technical trade-offs
+
+## Environment Variables
+See `.env.example` for full list. Key vars:
+- SUPABASE_URL, SUPABASE_KEY
+- POSTHOG_API_KEY
+- RESEND_API_KEY
+- TRIGGER_API_KEY
+- N8N_WEBHOOK_URL
+
+## Deployment
+- Frontend: `vercel deploy`
+- Backend services: Docker → ECR → ECS
+- n8n workflows: Self-hosted or n8n Cloud
+- Trigger.dev: SaaS (cloud)

@@ -1,0 +1,84 @@
+{
+  "version": 2,
+  "buildCommand": "npm run build",
+  "devCommand": "npm run dev",
+  "installCommand": "npm install --legacy-peer-deps",
+  "framework": "nextjs",
+  "env": [
+    {
+      "key": "SUPABASE_URL",
+      "description": "Supabase project URL"
+    },
+    {
+      "key": "SUPABASE_KEY",
+      "description": "Supabase anonymous public key",
+      "value": "@supabase_key"
+    },
+    {
+      "key": "SUPABASE_SERVICE_ROLE_KEY",
+      "description": "Supabase service role key for admin operations",
+      "value": "@supabase_service_role_key"
+    },
+    {
+      "key": "POSTHOG_API_KEY",
+      "description": "PostHog API key for feature flags and analytics",
+      "value": "@posthog_api_key"
+    },
+    {
+      "key": "POSTHOG_API_HOST",
+      "description": "PostHog API host",
+      "value": "https://app.posthog.com"
+    },
+    {
+      "key": "RESEND_API_KEY",
+      "description": "Resend API key for email sending",
+      "value": "@resend_api_key"
+    },
+    {
+      "key": "TRIGGER_API_KEY",
+      "description": "Trigger.dev API key for background jobs",
+      "value": "@trigger_api_key"
+    },
+    {
+      "key": "N8N_WEBHOOK_URL",
+      "description": "n8n webhook URL for workflow triggers",
+      "value": "@n8n_webhook_url"
+    },
+    {
+      "key": "API_URL",
+      "description": "Backend API URL",
+      "value": "https://api.example.com"
+    },
+    {
+      "key": "APP_URL",
+      "description": "Frontend app URL",
+      "value": "https://app.example.com"
+    }
+  ],
+  "redirects": [
+    {
+      "source": "/docs",
+      "destination": "/docs/index.html",
+      "permanent": false
+    }
+  ],
+  "headers": [
+    {
+      "source": "/:path*",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "X-XSS-Protection",
+          "value": "1; mode=block"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+run = "npm run dev"
+modules = ["nodejs-20"]
+
+[deployment]
+run = ["npm", "run", "build"]
+build = ["npm", "install", "--legacy-peer-deps"]
+
+[nix]
+channel = "unstable"
+
+[env]
+npm_config_legacy_peer_deps = "true"
+NODE_ENV = "development"
