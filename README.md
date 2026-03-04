@@ -8,7 +8,7 @@ The architecture generalizes to any consumer product where engagement is the bus
 
 ## The Problem
 
-The platform had strong acquisition but poor retention. Users signed up, engaged for 2-3 weeks, then dropped off. The product treated every user the same — same onboarding, same content, same notification cadence — regardless of their goals, behavior patterns, or risk of disengagement.
+The platform had strong acquisition but poor retention. Users signed up, engaged for 2-3 weeks, then dropped off. The product treated every user the same, same onboarding, same content, same notification cadence, regardless of their goals, behavior patterns, or risk of disengagement.
 
 **For users:**
 - Generic experience that didn't adapt to individual goals or progress
@@ -19,7 +19,7 @@ The platform had strong acquisition but poor retention. Users signed up, engaged
 **For the business:**
 - 68% of users churned within 90 days of signup
 - No systematic way to identify at-risk users before they disappeared
-- Product decisions made by intuition, not data — no experimentation culture
+- Product decisions made by intuition, not data, ther was no experimentation culture
 - Feature launches were all-or-nothing: ship to 100% and hope
 - Engagement metrics flat despite continuous feature investment
 
