@@ -430,7 +430,7 @@ engagement-personalization-engine/
 │   ├── DECISION_LOG.md                # Key technical and product decisions
 │   └── ROADMAP.md                     # Phased rollout plan
 └── src/
-    ├── README.md                      # PM reference implementation notes
+    ├── README.md                      # Project overview and documentation
     ├── segmentation/
     │   └── user_segmenter.py          # Real-time user segmentation engine
     ├── scoring/
@@ -487,3 +487,44 @@ engagement-personalization-engine/
 | Infrastructure | $420/month | Supabase $25 + Redis $65 + Vercel $20 + Trigger.dev $25 + n8n $50 + AWS compute $150 + misc $85 |
 | **Total Engagement** | **$200,000** | Fixed-price, phases billed at milestones |
 | **Ongoing Run Rate** | **$900/month** | Infrastructure + AI tokens + support |
+
+---
+
+## Business Context
+
+Consumer wellness apps represent a $7.2B market (Statista 2025). The 500+ apps with 1M+ monthly active users spend $2-5M annually on engagement and retention infrastructure, making personalization and experimentation core competencies for scale.
+
+| Metric | Before Platform | After Platform | Impact |
+|--------|-----------------|-----------------|--------|
+| 90-Day Retention | 32% | 51% | +19 points |
+| Revenue Per User (ARPU) | $8.40/mo | $11.20/mo | +33% |
+| LTV Per User | $2.69 | $5.71 | +112% |
+| **Annual Value Created** | - | $6.0M | $2M users × $3.02 LTV increase |
+| **Platform Cost** | - | $200,000 build + $900/mo | **Payback: 2 weeks** |
+| **3-Year ROI** | - | - | **89x** |
+
+If productized at $5,000-15,000/month based on MAU tiers, targeting $10-20M ARR.
+
+---
+
+## PM Perspective
+
+**Hardest decision: Build vs. buy on experimentation infrastructure.** Optimizely and LaunchDarkly offered polished out-of-box A/B testing, but neither supported sequential testing with engagement-aware cohort decomposition. We needed to test recommendation algorithms independently from notification frequency, and break down results not just by platform but by engagement tier (high-engagement users behave differently from at-risk users). Building custom on Statsig gave us statistical rigor (sequential testing, always-valid confidence intervals) without the $180K/year Optimizely license. Risk was timeline—added 3 weeks to Phase 2.
+
+**Surprise: Engagement scoring weights were backwards from team expectations.** Product team assumed frequency (daily opens) was the strongest retention predictor. Our analysis showed recency (days since last meaningful action) was 2x more predictive. A user who opens the app daily but doesn't complete meaningful actions looks "engaged" but isn't at risk; a user who hasn't opened in a week but had deep engagement last month is the real retention risk. This single insight changed the entire notification strategy—instead of "open the app daily" we shifted to "come back when there's something relevant for you," which cut notification opt-outs from 34% to 18%.
+
+**Would do differently: Ship recommendation engine as separate service from day one.** We built it monolithically inside the personalization engine, which made it impossible to A/B test recommendation algorithms independently from the scoring system. Took an extra sprint to decouple in Phase 2. Lesson: design for experimental isolation early, especially when you know different components have different iteration velocities.
+
+---
+
+## About This Project
+
+This repository documents a product I built as **Lead Product Manager** at Ampersand Consulting for a consumer wellness platform with 2M+ weekly active users struggling with retention and engagement. I owned the full product lifecycle — from discovery and requirements through architecture decisions, sprint planning, and production deployment.
+
+**My role included:**
+- Led discovery with growth and product teams to map user engagement patterns and identify retention levers
+- Designed the engagement scoring framework (recency, frequency, depth, consistency, progression weights)
+- Made build-vs-buy decisions on experimentation infrastructure, choosing custom over Optimizely
+- Established measurement framework tying engagement scores to retention, ARPU, and lifetime value
+
+**Note:** Client-identifying details have been anonymized. Code represents the architecture and design decisions I drove; production deployments were managed by client engineering teams.
