@@ -345,6 +345,29 @@ Feast eliminated this by defining features once and serving them identically for
 
 ---
 
+## DEC-013: Behavioral Signal-Based Recommendations Over Content-Based Collaborative Filtering
+
+**Date:** October 2024
+**Status:** Accepted (supersedes earlier approach)
+**Stakeholders:** PM, Data Science Lead, Engineering
+
+**Context:**
+First recommendation engine used content-based collaborative filtering — analyzing content attributes (category, duration, difficulty) and finding similar users based on content consumption overlap.
+
+**What Happened:**
+Cold start problem was severe. New users (first 7 days) had no content history, so recommendations defaulted to "most popular" — which was the same generic content everyone saw. This segment had 72% churn by Day 14. Even for established users, content-based signals missed intent: a user watching a 5-minute yoga video doesn't necessarily want more yoga — they might be exploring.
+
+**Decision:**
+Pivoted to behavioral signals — session patterns (time-of-day, session duration, scroll depth), engagement velocity (how quickly users interact after opening), goal-setting behavior, and completion patterns. Content attributes became secondary features, not primary signals.
+
+**Rationale:**
+Behavioral signals are available from first session (no cold start). Early testing showed 3x improvement in Day-7 retention for new users (18% → 54% completion of recommended content). Behavioral clustering identified 6 distinct usage patterns that mapped to real motivation differences.
+
+**Consequences:**
+- Required rebuilding the feature pipeline (3 weeks). Lost the "explain why this was recommended" UI feature (behavioral signals are harder to explain than "because you liked similar content"). Added complexity to the ML pipeline. But retention improvement justified the investment.
+
+---
+
 ## DEC-011: Intervention Escalation vs. Single Touchpoint
 
 **Date:** June 2024
