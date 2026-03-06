@@ -16,6 +16,25 @@ Expected throughput: 50K+ events/second.
 
 Usage:
     uvicorn segment_receiver:app --host 0.0.0.0 --port 8000
+
+Production Notes (not implemented in this demo):
+- Segment Webhook HMAC: Verify inbound webhooks using Segment's shared secret
+  and the X-Signature header (HMAC-SHA1). Reject unsigned payloads to prevent
+  spoofed events from poisoning the personalization pipeline.
+- PII Tokenization: User traits (email, phone, address) should be tokenized
+  before storage using a PII vault (e.g., Skyflow, Basis Theory, or a custom
+  KMS-backed token service). The personalization engine operates on tokens, and
+  only the email/SMS sender resolves tokens at delivery time.
+- A/B Statistical Significance: Variant assignment in the demo uses random
+  splits. Production should use a proper experimentation framework (Eppo,
+  LaunchDarkly, or Statsig) with sequential testing, multiple comparison
+  correction, and minimum detectable effect (MDE) calculations.
+- Kafka Idempotency: The Kafka producer should use enable.idempotence=true
+  and the consumer should track processed event IDs to ensure exactly-once
+  semantics — duplicate events must not trigger duplicate personalization actions.
+- GDPR/CCPA Compliance: Implement a user deletion webhook handler that
+  purges all PII from Kafka topics, S3 logs, and the feature store within
+  the 30-day GDPR erasure window.
 """
 
 from fastapi import FastAPI, Request, HTTPException
