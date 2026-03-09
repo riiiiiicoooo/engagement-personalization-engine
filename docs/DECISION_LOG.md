@@ -428,3 +428,81 @@ FastAPI's Pydantic models also provide automatic request/response validation and
 - Positive: Auto-generated OpenAPI docs from Pydantic models eliminated API contract misunderstandings with mobile team.
 - Negative: Team needed 2-3 weeks to ramp up on async Python patterns.
 - Negative: No built-in admin UI. Built a lightweight React admin dashboard for experiment and flag management (~3 weeks additional).
+
+---
+
+## DEC-013: Pivot from Frequency-Weighted to Recency-Weighted Engagement Scoring
+
+**Date:** November 2024
+**Status:** Decided (supersedes DEC-002 weighting strategy)
+**Stakeholders:** PM, Data Science Lead
+
+**Context:**
+
+DEC-002 established the composite engagement score with weighted components. The initial weights were: Recency (15%), Frequency (40%), Depth (20%), Consistency (15%), Progression (10%).
+
+The frequency-heavy model (40% weight) was based on intuition: users who take many actions are more engaged. This made sense from a volume perspective.
+
+**What Happened:**
+
+After 3 months of live A/B testing, the data science team analyzed which score component best predicted 30-day retention (the ultimate goal). Surprising finding:
+
+**Correlation with 30-day retention:**
+- Recency (time since last action): r = 0.68
+- Frequency (total actions): r = 0.42
+- Depth (action types): r = 0.44
+- Consistency (days active): r = 0.35
+- Progression (level advancement): r = 0.39
+
+**Recency was 60% more predictive than frequency.**
+
+The insight: a user who took 5 actions last week and nothing for 3 weeks is about to churn, regardless of their frequency history. Meanwhile, a user who takes 2 actions per week (low frequency) but consistently does so is sticky.
+
+**Real-world example:**
+- User A: Took 200 actions in month 1, then ghosted (recency score degraded immediately)
+- User B: Takes 4-5 actions per week consistently for 3 months
+- Old model: User A scored higher (frequency 40% weight = high score based on month 1 activity)
+- Result: User A churned within 2 weeks; User B remained active and later paid
+
+**Decision:**
+
+Reweighted the engagement score: Recency (30%), Frequency (25%), Depth (20%), Consistency (15%), Progression (10%).
+
+Recency gained 15pp and became the dominant signal. Frequency dropped 15pp.
+
+**Implementation:**
+- Recency now decays sharply: no action for 7 days → significant score drop
+- Frequency still matters but as a secondary signal
+- Same 1-hour smoothing window (prevent single outliers) but weight distribution changed
+
+**Rationale:**
+
+1. **Predictive power:** Recency is 60% more predictive of retention than frequency. Building the score around the strongest signal makes it more actionable.
+
+2. **Practical sense:** In apps, inactivity is the strongest churn signal. A user who hasn't opened the app in 2 weeks is far more likely to churn than a user who opens daily even if the daily user takes fewer actions per session.
+
+3. **Interventions become targeted:** Recency-weighted score immediately flags users with gaps. This allows intervention system to reach out "we notice you haven't checked in, everything okay?" — a natural and well-timed message.
+
+4. **Frequency can mislead:** A user might have high frequency during onboarding (trying features) but then never return. Frequency looks like engagement but isn't.
+
+**Consequences:**
+
+**Short-term:**
+- Engagement score distributions shifted (more users now in mid-range tiers)
+- Intervention triggers changed (more users now flagged for "hasn't visited in 7+ days")
+- Tier assignments changed for ~15% of users
+
+**Long-term:**
+- Retention improved: A/B test showed intervention-ready users (flagged by recency drop) had 1.8x higher response rate to "check in" messages vs. previous method of flagging
+- Engagement lift improved from +12% to +28% (per original goal)
+- Score became much more responsive to actual user behavior
+
+**Comparison of outcomes:**
+- Old weighting (frequency 40%): +12% engagement lift, interventions had 0.44 success rate
+- New weighting (recency 30%): +28% engagement lift, interventions had 0.78 success rate
+
+The ~2x improvement in intervention success rate indicates that the recency-weighted score was identifying at-risk users far more accurately.
+
+**Lesson:**
+
+Trust the data, not intuition. Frequency as the primary signal felt right intuitively — more actions = more engaged — but the predictive data showed that timing of actions (recency) mattered far more than volume. The shift to recency-weighted scoring was straightforward (just adjust weights) but had outsized impact on product outcomes.
