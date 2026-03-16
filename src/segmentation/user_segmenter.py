@@ -20,6 +20,13 @@ from datetime import datetime, timedelta
 from enum import Enum
 from typing import Optional
 
+# Import persistence layer (optional - allows graceful degradation if DB unavailable)
+try:
+    from ..db import save_user_segment
+    DB_AVAILABLE = True
+except ImportError:
+    DB_AVAILABLE = False
+
 
 # ============================================================================
 # Segment Definitions
@@ -378,12 +385,13 @@ class UserSegmenter:
     def compute_segments(self, activity: UserActivity) -> SegmentMembership:
         """
         Compute complete segment membership for a user.
-        
+
         Called on every meaningful event. Results are:
-        1. Cached in Redis (key: segments:{user_id}, TTL: 1 hour)
-        2. Compared to previous membership for transition detection
-        3. Included in event context for downstream analytics
-        
+        1. Persisted to PostgreSQL for reproducibility and transition tracking
+        2. Cached in Redis (key: segments:{user_id}, TTL: 1 hour)
+        3. Compared to previous membership for transition detection
+        4. Included in event context for downstream analytics
+
         Returns:
             SegmentMembership with all four dimensions + custom segments
         """
@@ -402,6 +410,23 @@ class UserSegmenter:
 
         # Evaluate custom segments after standard dimensions are set
         membership.custom_segments = self.evaluate_custom_segments(activity, membership)
+
+        # Persist to database for reproducibility and analytics
+        if DB_AVAILABLE:
+            try:
+                save_user_segment(
+                    user_id=membership.user_id,
+                    lifecycle_stage=membership.lifecycle_stage.value,
+                    behavioral_cohort=membership.behavioral_cohort.value,
+                    engagement_tier=membership.engagement_tier.value,
+                    goal_cluster=membership.goal_cluster.value,
+                    custom_segments=membership.custom_segments,
+                    computed_at=membership.computed_at
+                )
+            except Exception as e:
+                # Log but don't fail: persistence is secondary to real-time segmentation
+                import logging
+                logging.warning(f"Failed to persist segment for user {membership.user_id}: {e}")
 
         return membership
 
